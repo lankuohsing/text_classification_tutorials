@@ -338,8 +338,13 @@ def set_args():
                               f"imdb_bsz-{train_batch_size}"
                               f"_lr-{learning_rate}"
                               f"_len-{max_seq_length}")
+    log_dir = os.path.join("logs/",
+                              f"imdb_bsz-{train_batch_size}"
+                              f"_lr-{learning_rate}"
+                              f"_len-{max_seq_length}")
     training_args=TrainingArguments(output_dir=output_dir,
                                     use_cpu=True,
+                                    logging_dir=log_dir
                                     )
     training_args.do_train=True
     training_args.do_eval=True
