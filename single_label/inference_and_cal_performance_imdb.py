@@ -1,6 +1,9 @@
+import os.path
+
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
 import json
+from sklearn.metrics import precision_score, recall_score, f1_score
 model_name_or_path="/Users/guoxing.lan/projects/github/text_classification_tutorials/outputs/imdb_bsz-2_lr-2e-05_len-256/checkpoint-16"
 
 
@@ -49,6 +52,8 @@ if __name__=="__main__":
                      device=device)
     pred_labels=[]
     pred_probs=[]
+    list_text=list_text[0:16]
+    list_true_labels=list_true_labels[0:16]
     for i in range(0,len(list_text), batch_size):
         start_index=i
         end_index=start_index+batch_size
@@ -56,6 +61,20 @@ if __name__=="__main__":
         temp_pred_labels, temp_pred_probs=my_model.batch_inference(temp_list_text)
         pred_labels+=temp_pred_labels
         pred_probs+=temp_pred_probs
+    precision_list=precision_score(list_true_labels, pred_labels, average=None).tolist()
+    recall_list = recall_score(list_true_labels, pred_labels, average=None).tolist()
+    f1_list = f1_score(list_true_labels, pred_labels, average=None).tolist()
+    pred_res_dict={
+        "precision_list": precision_list,
+        "recall_list": recall_list,
+        "f1_list": f1_list,
+        "pred_probs":pred_probs,
+        "pred_labels":pred_labels
+    }
+    with open(os.path.join(model_name_or_path, "pred_res.json"),'w',encoding="UTF-8") as wf:
+        json.dump(pred_res_dict,wf,ensure_ascii=False)
+
+
 
 
 
