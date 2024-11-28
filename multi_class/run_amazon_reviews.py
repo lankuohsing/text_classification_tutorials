@@ -300,7 +300,7 @@ def set_args():
     '''
     # parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
     proj_dir = "/Users/guoxing.lan/projects/"
-    max_seq_length = 256
+    max_seq_length = 128
     train_batch_size = 2
     learning_rate = 2e-5
     eval_batch_size = 2
@@ -353,7 +353,7 @@ def set_args():
     training_args.per_device_train_batch_size=train_batch_size
     training_args.per_device_eval_batch_size=eval_batch_size
     training_args.learning_rate=learning_rate
-    training_args.num_train_epochs=2
+    training_args.num_train_epochs=1
     training_args.eval_strategy="epoch"
     training_args.save_strategy = "epoch"
     training_args.logging_strategy="steps"
@@ -770,7 +770,7 @@ def main():
             result = metric.compute(predictions=preds, references=p.label_ids, average="micro")
         else:
             preds = np.argmax(preds, axis=1)
-            result = metric.compute(predictions=preds, references=p.label_ids)
+            result = metric.compute(predictions=preds, references=p.label_ids, average="micro")
         if len(result) > 1:
             result["combined_score"] = np.mean(list(result.values())).item()
         return result
@@ -864,8 +864,8 @@ def main():
             #######
 
 
-        sys.exit(0)
-        raise Exception(f'只需要测试')
+        # sys.exit(0)
+        # raise Exception(f'只需要测试')
 
     # Training
     if training_args.do_train:

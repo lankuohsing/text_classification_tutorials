@@ -9,7 +9,7 @@ outputs/
 datasets/
 jsonls/
 
-
+logs/
 # env
 .DS_Store
 .idea/
