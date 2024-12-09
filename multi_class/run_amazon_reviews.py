@@ -638,7 +638,7 @@ def main():
     # for training ,we will update the config with label infos,
     # if do_train is not set, we will use the label infos in the config
     if training_args.do_train and not is_regression:  # classification, training
-        label_to_id = {v: i for i, v in enumerate(label_list)}
+        label_to_id = {v: i for i, v in enumerate(label_list)}#这里最好自己实现定义好，因为训练集可能没有包含所有标签
         # update config with label infos
         if model.config.label2id != label_to_id:
             logger.warning(

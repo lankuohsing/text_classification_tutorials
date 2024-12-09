@@ -314,17 +314,17 @@ def set_args():
 
     ##########dataset args###########
     dataset_path=os.path.join(proj_dir,
-                              "datasets/text_classification/reuters21578/reuters21578/ModApte")
+                              "datasets/text_classification/reuters21578_cleaned")
     data_args=DataTrainingArguments(dataset_name=dataset_path)# option 1
     data_args.max_seq_length=max_seq_length
-    data_args.validation_split_name = 'dev'
+    data_args.validation_split_name = 'validation'
     data_args.dataset_name=dataset_path
     # data_args.dataset_config_name="ModApte"
     data_args.shuffle_train_dataset=True
     # data_args.remove_splits="unused"
     data_args.metric_name=os.path.join(proj_dir,"Evaluations/f1")
     data_args.text_column_names="text"
-    data_args.label_column_name="topics"
+    data_args.label_column_name="labels"
 
 
 
@@ -335,11 +335,11 @@ def set_args():
 
 
     output_dir = os.path.join("outputs/",
-                              f"amazon_bsz-{train_batch_size}"
+                              f"reuter_bsz-{train_batch_size}"
                               f"_lr-{learning_rate}"
                               f"_len-{max_seq_length}")
     log_dir = os.path.join("logs/",
-                              f"amazon_bsz-{train_batch_size}"
+                              f"reuter_bsz-{train_batch_size}"
                               f"_lr-{learning_rate}"
                               f"_len-{max_seq_length}")
     training_args=TrainingArguments(output_dir=output_dir,
@@ -451,7 +451,7 @@ def main():
         from datasets import DatasetDict,Dataset
         small_dataset = DatasetDict({
             'train': Dataset.from_dict(raw_datasets['train'].shuffle(seed=42)[0:16]),
-            'dev': Dataset.from_dict(raw_datasets['dev'].shuffle(seed=42)[0:16]),
+            data_args.validation_split_name: Dataset.from_dict(raw_datasets[data_args.validation_split_name].shuffle(seed=42)[0:16]),
             'test': Dataset.from_dict(raw_datasets['test'].shuffle(seed=42)[0:16]),
             # 'unused': Dataset.from_dict(raw_datasets_unused[0:16])
         })
@@ -509,7 +509,7 @@ def main():
         raw_datasets["train"] = raw_datasets[data_args.train_split_name]
         raw_datasets.pop(data_args.train_split_name)
 
-    if data_args.validation_split_name is not None:
+    if data_args.validation_split_name is not None and data_args.validation_split_name!='validation':
         logger.info(f"using {data_args.validation_split_name} as validation set")
         raw_datasets["validation"] = raw_datasets[data_args.validation_split_name]
         raw_datasets.pop(data_args.validation_split_name)
@@ -564,25 +564,39 @@ def main():
         # Trying to find the number of labels in a multi-label classification task
         # We have to deal with common cases that labels appear in the training set but not in the validation/test set.
         # So we build the label list from the union of labels in train/val/test.
-        label_list = get_label_list(raw_datasets, split="train")#这里的label被转为了str类型
+        # label_list = get_label_list(raw_datasets, split="train")#这里的label被转为了str类型。最好是本地加载预先存好的
+        import json
+        with open(os.path.join(data_args.dataset_name,"dict_label_to_id.json"), 'r', encoding="UTF-8") as rf:
+            dict_label_to_id=json.load(rf)
+        with open(os.path.join(data_args.dataset_name, "dict_id_to_label.json"), 'r', encoding="UTF-8") as rf:
+            dict_id_to_label = json.load(rf)
+        label_list=[]
+        for i, label in dict_id_to_label.items():
+            label_list.append(label)
+
         for split in ["validation", "test"]:#检查验证集和测试集的label set是否和训练集一样
             if split in raw_datasets:
                 val_or_test_labels = get_label_list(raw_datasets, split=split)
+                # label_list=list(dict_label_to_id.keys())
                 diff = set(val_or_test_labels).difference(set(label_list))
                 if len(diff) > 0:
                     # add the labels that appear in val/test but not in train, throw a warning
                     logger.warning(
                         f"Labels {diff} in {split} set but not in training set, adding them to the label list"
                     )
-                    label_list += list(diff)
+                    raise Exception(
+                        f"Labels {diff} in {split} set but not in training set, adding them to the label list"
+                    )
+                    # label_list += list(diff)
         # if label is -1, we throw a warning and remove it from the label list
         # for label in label_list:
         #     if label == -1:
         #         logger.warning("Label -1 found in label list, removing it.")
         #         label_list.remove(label)
 
-        label_list.sort()
-        num_labels = len(label_list)
+        # label_list.sort()
+        # num_labels = len(label_list)
+        num_labels=len(dict_label_to_id)
         if num_labels <= 1:
             raise ValueError("You need more than one label to do classification.")
 
@@ -592,6 +606,8 @@ def main():
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
         num_labels=num_labels,
+        label2id=dict_label_to_id,
+        id2label=dict_id_to_label,
         finetuning_task="text-classification",
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
@@ -638,7 +654,8 @@ def main():
     # for training ,we will update the config with label infos,
     # if do_train is not set, we will use the label infos in the config
     if training_args.do_train and not is_regression:  # classification, training
-        label_to_id = {v: i for i, v in enumerate(label_list)}
+        # label_to_id = {v: i for i, v in enumerate(label_list)}
+        label_to_id=dict_label_to_id
         # update config with label infos
         if model.config.label2id != label_to_id:
             logger.warning(
